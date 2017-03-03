@@ -1,8 +1,6 @@
 '''
-InterDimensional Space Ball Pilot!
+InterDimensional Space Ball Pilot Simulator!
 By ddthj/SquidFairy/GooseFairy (I have too many names)
-
-more to be added
 
 '''
 import pygame
@@ -11,7 +9,10 @@ import math
 pygame.init()
 window = pygame.display.set_mode((1400,840),pygame.RESIZABLE)
 pygame.display.set_caption('Interdimensional Space Ball Pilot Simulator')
-space = [0,0,20]
+space = [0,0,20] #the color of space
+white = [255,255,255]
+instrument_panel_color = [100,100,100]
+ship_color = [0,200,50]
 #load images here
 image_stars = pygame.image.load('stars.png')
 
@@ -36,11 +37,69 @@ def render(image,x,y,w,h):
     RECT = pygame.Rect(x,y,w,h)
     window.blit(image,RECT)
 
+def render_without_fucking_it(image,x,y):
+    RECT = image.get_rect(center = (x,y))
+    window.blit(image,RECT)
+
+
 def rect(color, x, y, width, height):
     pygame.draw.rect(window,color,(x,y,width,height))
 
+class sector_beacon():
+    def __init__(self,x,y):
+        self.type = "sb"
+        self.x = x
+        self.y = y
+        #self.image = pygame.image.load("sb")
+    def render(self,player_loc):
+        #todo make this scale with window size and only render when player is nearby
+        #render(self.image,self.x,self.y,30,30)
+        rect(white,self.x-45+player_loc[0],self.y-45+player_loc[1],90,90)
+        
+        
+class sector_beacon_instrument():
+    def __init__(self,panel_spot):
+        self.base = pygame.image.load("sbi.png")
+        self.needle = pygame.image.load("sbi_needle.png")
+        self.panel_position = panel_spot
+        self.target = 0
+        self.position = 0
+
+    def tick(self,player,objects):
+        x = player.x
+        y = player.y
+        for item in objects:
+            if item.type == "sb":
+                sx = item.x
+                sy = item.y
+
+        if sx > x and sy > y:
+            self.target = 45
+        elif sx > x and sy < y:
+            self.target = 135
+        elif sx < x and sy > y:
+            self.target = 315
+        elif sx < x and sy < y:
+            self.target = 225
+
+        if self.target > self.position and self.target < self.position + 180:
+            self.position += 10
+        else:
+            self.position -= 10
+    def render(self):
+        #change w/h to match window scale at some point pls
+        render(self.base,self.panel_position[0],self.panel_position[1],200,200)
+        #render the needle
+        image = pygame.transform.scale(self.needle,(50,300))
+        image = pygame.transform.rotate(image,self.position)
+        render_without_fucking_it(image,self.panel_position[0]+90,self.panel_position[1])
+        
+        
+
+
 class space_ball():
     def __init__(self,level):
+        self.type = "player"
         self.voltage = 25
         self.x = 0
         self.y = 0
@@ -48,15 +107,16 @@ class space_ball():
         self.layer = 0
         self.velocity = [0,0,0] #direction, speed, #rotational velocity
         self.instruments = [] # this will hold all of the active instruments
+        self.instruments.append(sector_beacon_instrument((0,500)))
         if level < 5:
             self.fuel = 99999999
             self.discharge = False
         elif level > 5:
             self.fuel = 1000
             self.discharge = True
-    def tick(self,inputs):
+    def tick(self,inputs,objects):
         #input = x axis (forward/backward), z axis (rotation)
-        #rotation speed will be inversly proportional to velocity
+        #rotation speed will be inversly proportional to velocity?
 
         #first calculating the direction/velocity 
         self.velocity[2] = inputs[1]
@@ -77,10 +137,24 @@ class space_ball():
         self.x += int(math.sin(math.radians(self.velocity[0]))*self.velocity[1])
         self.y += int(math.sin(math.radians(90-self.velocity[0]))*self.velocity[1])
         for item in self.instruments:
-            item.tick()
-            
+            item.tick(self,objects)
+    def render(self):
+        #render instrument panel
+        
+        rect(instrument_panel_color,0,500,1400,340)
+        for item in self.instruments:
+            item.render()
+        #render ship
+        rect(ship_color,700-50,220-50,100,100)
+
+'''
+###############################################this is where the game actually runs |
+                                                                                    V
+'''
+
 player = space_ball(1)
 sim_objects = []
+sim_objects.append(sector_beacon(500,500))
 Clock = pygame.time.Clock()
 w=a=s=d=False
 while 1:
@@ -134,12 +208,29 @@ while 1:
         else:
             inputs.append(0)
         #print(str(inputs))
-        player.tick(inputs)
-    render(image_stars,player.x,player.y,1400,840)
-    if player.x > 0:
-        render(image_stars,player.x-1400,player.y,1400,840)
-    elif player.x < 0:
-        render(image_stars,player.x+1400,player.y,1400,840)
+        inputs.append(mouse)
+        inputs.append(click)
+        player.tick(inputs,sim_objects)
+        
+    fake_x = player.x % 1400
+    fake_y = player.y % 840
+    
+    #rendering starts in center + up down left right from center
+    render(image_stars,fake_x,fake_y,1400,840)
+    render(image_stars,fake_x+1400,fake_y,1400,840)
+    render(image_stars,fake_x-1400,fake_y,1400,840)
+    render(image_stars,fake_x,fake_y+840,1400,840)
+    render(image_stars,fake_x,fake_y-840,1400,840)
+    #diagonals too
+    render(image_stars,fake_x-1400,fake_y+840,1400,840)
+    render(image_stars,fake_x-1400,fake_y-840,1400,840)
+    render(image_stars,fake_x+1400,fake_y+840,1400,840)
+    render(image_stars,fake_x+1400,fake_y-840,1400,840)
+
+    player.render()
+    for item in sim_objects:
+        item.render((player.x,player.y))
+
         
     
     pygame.display.update()
