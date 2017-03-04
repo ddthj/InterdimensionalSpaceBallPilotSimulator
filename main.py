@@ -93,9 +93,11 @@ class sector_beacon_instrument():
         else:
             self.position += self.velocity
         
-        if self.velocity > 0 and abs(self.position - self.target) < 10:
+        if self.velocity > 0 and abs(self.position - self.target) < 20:
             self.velocity -=1
-        elif self.velocity < 10:
+            if self.velocity >1 and abs(self.position - self.target) < 10:
+                self.velocity -= 2
+        elif self.velocity < 20:
             self.velocity += 1
         
         if self.position > 359:
@@ -251,10 +253,10 @@ while 1:
     render(image_stars,fake_x+1400,fake_y+840,1400,840)
     render(image_stars,fake_x+1400,fake_y-840,1400,840)
 
-    player.render()
+    
     for item in sim_objects:
         item.render((-player.x,player.y))
-
+    player.render()
         
     
     pygame.display.update()
