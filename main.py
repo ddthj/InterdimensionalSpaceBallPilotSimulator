@@ -54,7 +54,7 @@ class sector_beacon():
     def render(self,player_loc):
         #todo make this scale with window size and only render when player is nearby
         #render(self.image,self.x,self.y,30,30)
-        rect(white,self.x-45+player_loc[0],self.y-45+player_loc[1],90,90)
+        rect(white,self.x-45+player_loc[0] +700,-self.y-45+player_loc[1]+220,90,90)
         
         
 class sector_beacon_instrument():
@@ -64,35 +64,53 @@ class sector_beacon_instrument():
         self.panel_position = panel_spot
         self.target = 0
         self.position = 0
+        self.velocity = 5 #ignore this for now lol
 
     def tick(self,player,objects):
         x = player.x
         y = player.y
+
         for item in objects:
             if item.type == "sb":
                 sx = item.x
                 sy = item.y
 
         if sx > x and sy > y:
-            self.target = 45
-        elif sx > x and sy < y:
             self.target = 135
+        elif sx > x and sy < y:
+            self.target = 45
         elif sx < x and sy > y:
-            self.target = 315
-        elif sx < x and sy < y:
             self.target = 225
+        elif sx < x and sy < y:
+            self.target = 315
 
-        if self.target > self.position and self.target < self.position + 180:
-            self.position += 10
+        
+        right_range = -1
+        if self.target+180 > 359:
+            right_range = self.target - 180
+        if self.position > self.target or self.position < right_range and right_range != -1:
+            self.position -= self.velocity
         else:
-            self.position -= 10
+            self.position += self.velocity
+        
+        if self.velocity > 0 and abs(self.position - self.target) < 10:
+            self.velocity -=1
+        elif self.velocity < 10:
+            self.velocity += 1
+        
+        if self.position > 359:
+            self.position -= 360
+        elif self.position < 0:
+            self.position += 360
+        
+        
     def render(self):
+        image = pygame.transform.scale(self.needle,(10,100))
+        image = pygame.transform.rotate(image,self.position)
         #change w/h to match window scale at some point pls
         render(self.base,self.panel_position[0],self.panel_position[1],200,200)
-        #render the needle
-        image = pygame.transform.scale(self.needle,(50,300))
-        image = pygame.transform.rotate(image,self.position)
-        render_without_fucking_it(image,self.panel_position[0]+90,self.panel_position[1])
+
+        render_without_fucking_it(image,self.panel_position[0]+100,self.panel_position[1]+100)
         
         
 
@@ -107,7 +125,7 @@ class space_ball():
         self.layer = 0
         self.velocity = [0,0,0] #direction, speed, #rotational velocity
         self.instruments = [] # this will hold all of the active instruments
-        self.instruments.append(sector_beacon_instrument((0,500)))
+        self.instruments.append(sector_beacon_instrument((0,300)))
         if level < 5:
             self.fuel = 99999999
             self.discharge = False
@@ -132,6 +150,7 @@ class space_ball():
             self.velocity[1] += 10
         elif inputs[0] < self.velocity[1]:
             self.velocity[1] -= 10
+        #print(str(self.x)+" " + str(self.y))
 
         #second applying the movement
         self.x += int(math.sin(math.radians(self.velocity[0]))*self.velocity[1])
@@ -141,7 +160,7 @@ class space_ball():
     def render(self):
         #render instrument panel
         
-        rect(instrument_panel_color,0,500,1400,340)
+        rect(instrument_panel_color,0,300,1400,540)
         for item in self.instruments:
             item.render()
         #render ship
@@ -202,17 +221,22 @@ while 1:
             inputs.append(0)
 
         if a==True and d == False:
-            inputs.append(10)
-        elif d==True and a == False:
             inputs.append(-10)
+        elif d==True and a == False:
+            inputs.append(10)
         else:
             inputs.append(0)
         #print(str(inputs))
         inputs.append(mouse)
         inputs.append(click)
         player.tick(inputs,sim_objects)
-        
-    fake_x = player.x % 1400
+    
+    '''
+    TO MAKE THINGS CLEAR:
+    the y axis is inverted in pygame, meaning moving down = increasing y numbers. so we invert it to make things righter
+    the x axis is normal, but since the map moves around the player we invert the x axis and in-invert the y axis to make things rightest
+    ''' 
+    fake_x = -player.x % 1400
     fake_y = player.y % 840
     
     #rendering starts in center + up down left right from center
@@ -229,7 +253,7 @@ while 1:
 
     player.render()
     for item in sim_objects:
-        item.render((player.x,player.y))
+        item.render((-player.x,player.y))
 
         
     
